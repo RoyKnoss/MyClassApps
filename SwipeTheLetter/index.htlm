@@ -2,18 +2,244 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Classroom Apps</title>
+  <title>Word Spelling Game</title>
+  <link rel="stylesheet" href="https://pyscript.net" />
+  <script type="module" src="https://pyscript.net"></script>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; text-align: center; background: #f4f4f9; }
-    a { display: block; padding: 15px; margin: 15px 0; background: #2c7be5; color: white; text-decoration: none; border-radius: 8px; font-size: 20px; }
-    a:hover { background: #1a5bb8; }
+    body, html { margin: 0; padding: 0; overflow: hidden; background: #e6d2a8; }
+    canvas { display: block; width: 100vw; height: 100vh; }
   </style>
 </head>
 <body>
-  <h1>Welcome, Students!</h1>
-  <p>Choose an activity below:</p>
+  <canvas id="gameCanvas"></canvas>
 
-  <a href="spelling-game/">1. Word Spelling Game</a>
-  <!-- Add more links here as you upload more apps! -->
+  <script type="py" config='{"files": {"./words.json": "./words.json"}}'>
+    import json, random, os
+    from pyscript import document, window
+    from pyodide.ffi import create_proxy
+
+    canvas = document.getElementById("gameCanvas")
+    ctx = canvas.getContext("2d")
+
+    def resize():
+        canvas.width = window.innerWidth
+        canvas.height = window.innerHeight
+    resize()
+
+    # Load word list from words.json
+    with open("words.json") as f:
+        raw_files = json.load(f)
+
+    IGNORE = {"dash", "play", "replay", "exit", "window"}
+    LETTERS = set("abcdefghijklmnopqrstuvwxyz")
+    word_files = [
+        f for f in raw_files
+        if os.path.splitext(f)[0].lower() not in IGNORE
+        and 2 <= len(os.path.splitext(f)[0]) <= 10
+        and os.path.splitext(f)[0].isalpha()
+    ]
+    random.shuffle(word_files)
+
+    # Helper to load browser images
+    img_cache = {}
+    def get_img(src):
+        if src not in img_cache:
+            im = window.Image.new()
+            im.src = src
+            img_cache[src] = im
+        return img_cache[src]
+
+    # Preload UI assets
+    dash_img = get_img("assets/dash.png")
+    play_img = get_img("assets/play.png")
+    replay_img = get_img("assets/replay.png")
+
+    def play_sound(name):
+        try:
+            window.Audio.new(f"assets/{name}.mp3").play()
+        except Exception:
+            pass
+
+    state = {
+        "index": -1,
+        "timer": 30,
+        "lives": 3,
+        "word": "",
+        "prompt_img": None,
+        "dashes": [],
+        "tiles": [],
+        "dragging": None,
+        "offset_x": 0,
+        "offset_y": 0,
+        "active": False
+    }
+
+    def start_round():
+        state["index"] += 1
+        if state["index"] >= len(word_files):
+            random.shuffle(word_files)
+            state["index"] = 0
+
+        wf = word_files[state["index"]]
+        word = os.path.splitext(wf)[0].lower()
+        state["word"] = word
+        state["timer"] = 30
+        state["lives"] = 3
+        state["active"] = True
+        state["prompt_img"] = get_img(f"Images/{wf}")
+
+        sw, sh = canvas.width, canvas.height
+        n = len(word)
+        spacing = min(160, (sw * 0.8) / max(n, 1))
+        start_x = sw / 2 - ((n - 1) * spacing) / 2
+
+        state["dashes"] = [
+            {"x": start_x + i * spacing, "y": sh * 0.88, "letter": ch, "filled": False}
+            for i, ch in enumerate(word)
+        ]
+
+        letters = list(word)
+        random.shuffle(letters)
+        t_size = int(sh * 0.18)
+        t_spacing = int(t_size * 0.95)
+        t_start = sw / 2 - ((n - 1) * t_spacing) / 2
+
+        state["tiles"] = [
+            {
+                "letter": ch,
+                "img": get_img(f"assets/{ch}.png"),
+                "x": t_start + i * t_spacing,
+                "y": sh * 0.62,
+                "home": (t_start + i * t_spacing, sh * 0.62),
+                "size": t_size,
+                "locked": False
+            }
+            for i, ch in enumerate(letters)
+        ]
+
+    def restart_game():
+        random.shuffle(word_files)
+        state["index"] = -1
+        state["active"] = False
+        state["dashes"] = []
+        state["tiles"] = []
+        state["prompt_img"] = None
+
+    def tick():
+        if state["active"] and state["timer"] > 0:
+            state["timer"] -= 1
+            if state["timer"] == 0:
+                play_sound("fail")
+                state["active"] = False
+
+    window.setInterval(create_proxy(tick), 1000)
+
+    def draw():
+        sw, sh = canvas.width, canvas.height
+        ctx.fillStyle = "#e6d2a8"
+        ctx.fillRect(0, 0, sw, sh)
+
+        btn_size = int(sh * 0.16)
+        # Play & Replay buttons
+        if play_img.complete:
+            ctx.drawImage(play_img, sw - 150 - btn_size/2, 220 - btn_size/2, btn_size, btn_size)
+        if replay_img.complete:
+            ctx.drawImage(replay_img, 110 - btn_size/2, 330 - btn_size/2, btn_size, btn_size)
+
+        # Timer & Lives text
+        ctx.fillStyle = "#222"
+        ctx.font = "bold 24px Arial"
+        t_str = f"Time: {state['timer']}" if state["active"] else "Time: --"
+        ctx.fillText(t_str, sw - 220, 45)
+        ctx.fillText(f"Lives: {state['lives']}", sw - 220, 80)
+
+        # Prompt frame & image
+        if state["prompt_img"]:
+            fx, fy, fw, fh = sw * 0.25, sh * 0.05, sw * 0.50, sh * 0.35
+            ctx.strokeStyle = "maroon"
+            ctx.lineWidth = 4
+            ctx.strokeRect(fx, fy, fw, fh)
+            im = state["prompt_img"]
+            if im.complete and im.width > 0:
+                scale = min((fw * 0.9) / im.width, (fh * 0.9) / im.height)
+                iw, ih = im.width * scale, im.height * scale
+                ctx.drawImage(im, sw/2 - iw/2, fy + fh/2 - ih/2, iw, ih)
+
+        # Dashes
+        for d in state["dashes"]:
+            if dash_img.complete:
+                ctx.drawImage(dash_img, d["x"] - 60, d["y"] - 20, 120, 40)
+
+        # Letter tiles
+        for t in state["tiles"]:
+            im = t["img"]
+            s = t["size"]
+            if im.complete:
+                ctx.drawImage(im, t["x"] - s/2, t["y"] - s/2, s, s)
+
+        window.requestAnimationFrame(create_proxy(lambda _: draw()))
+
+    def on_down(e):
+        rect = canvas.getBoundingClientRect()
+        mx, my = e.clientX - rect.left, e.clientY - rect.top
+        sw, sh = canvas.width, canvas.height
+        btn_r = (sh * 0.16) / 2
+
+        # Check Play button click
+        if abs(mx - (sw - 150)) < btn_r and abs(my - 220) < btn_r:
+            start_round()
+            return
+        # Check Replay button click
+        if abs(mx - 110) < btn_r and abs(my - 330) < btn_r:
+            restart_game()
+            return
+
+        # Check tile grab (top-most first)
+        for t in reversed(state["tiles"]):
+            if not t["locked"] and abs(mx - t["x"]) < t["size"]/2 and abs(my - t["y"]) < t["size"]/2:
+                state["dragging"] = t
+                state["offset_x"] = mx - t["x"]
+                state["offset_y"] = my - t["y"]
+                break
+
+    def on_move(e):
+        if state["dragging"]:
+            rect = canvas.getBoundingClientRect()
+            state["dragging"]["x"] = (e.clientX - rect.left) - state["offset_x"]
+            state["dragging"]["y"] = (e.clientY - rect.top) - state["offset_y"]
+
+    def on_up(e):
+        t = state["dragging"]
+        state["dragging"] = None
+        if not t:
+            return
+
+        placed = False
+        for d in state["dashes"]:
+            if not d["filled"] and abs(t["x"] - d["x"]) < 60 and abs(t["y"] - d["y"]) < 60:
+                if t["letter"] == d["letter"]:
+                    play_sound("success")
+                    t["x"], t["y"] = d["x"], d["y"] - 40
+                    t["locked"] = True
+                    d["filled"] = True
+                    placed = True
+                    if all(x["filled"] for x in state["dashes"]):
+                        state["active"] = False
+                else:
+                    play_sound("bump")
+                    state["lives"] -= 1
+                    if state["lives"] <= 0:
+                        play_sound("fail")
+                        state["active"] = False
+                break
+
+        if not placed:
+            t["x"], t["y"] = t["home"]
+
+    canvas.addEventListener("pointerdown", create_proxy(on_down))
+    canvas.addEventListener("pointermove", create_proxy(on_move))
+    canvas.addEventListener("pointerup", create_proxy(on_up))
+    draw()
+  </script>
 </body>
 </html>
