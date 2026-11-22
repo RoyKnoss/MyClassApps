@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Classroom Apps</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; text-align: center; background: #f4f4f9; }
+    a { display: block; padding: 15px; margin: 15px 0; background: #2c7be5; color: white; text-decoration: none; border-radius: 8px; font-size: 20px; }
+    a:hover { background: #1a5bb8; }
+  </style>
+</head>
+<body>
+  <h1>Welcome, Students!</h1>
+  <p>Choose an activity below:</p>
+
+  <a href="spelling-game/">1. Word Spelling Game</a>
+  <!-- Add more links here as you upload more apps! -->
+</body>
+</html>
