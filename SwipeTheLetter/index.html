@@ -3,8 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <title>Word Spelling Game</title>
-  <link rel="stylesheet" href="https://pyscript.net" />
-  <script type="module" src="https://pyscript.net"></script>
+<script>
+  const ver = "2026.7.3";
+  const base = "https://pyscript.net" + "/releases/" + ver;
+  document.write('<link rel="stylesheet" href="' + base + '/core.css" />');
+  document.write('<script type="module" src="' + base + '/core.js"><\/script>');
+</script>
+
   <style>
     body, html { margin: 0; padding: 0; overflow: hidden; background: #e6d2a8; }
     canvas { display: block; width: 100vw; height: 100vh; }
