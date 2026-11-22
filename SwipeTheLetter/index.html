@@ -58,6 +58,7 @@
     dash_img = get_img("assets/dash.png")
     play_img = get_img("assets/play.png")
     replay_img = get_img("assets/replay.png")
+    exit_img = get_img("assets/exit.png")
 
     def play_sound(name):
         try:
@@ -150,6 +151,8 @@
             ctx.drawImage(play_img, sw - 150 - btn_size/2, 220 - btn_size/2, btn_size, btn_size)
         if replay_img.complete:
             ctx.drawImage(replay_img, 110 - btn_size/2, 330 - btn_size/2, btn_size, btn_size)
+        if exit_img.complete:
+            ctx.drawImage(exit_img, 110 - btn_size/2, 110 - btn_size/2, btn_size, btn_size)
 
         # Timer & Lives text
         ctx.fillStyle = "#222"
@@ -197,6 +200,9 @@
         # Check Replay button click
         if abs(mx - 110) < btn_r and abs(my - 330) < btn_r:
             restart_game()
+            return
+        if abs(mx - 110) < btn_r and abs(my - 110) < btn_r:
+            window.location.href = "../"
             return
 
         # Check tile grab (top-most first)
